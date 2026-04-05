@@ -6,6 +6,7 @@ Instead of relying purely on historical backtesting, this engine uses a **Monte 
 
 ## Key Features
 * **Live Financial Data Integration:** Automatically pulls historical tick data via the `yfinance` API.
+* **Dynamic Market Cap Weighting:** After initially constructing and validating the model using a standard Equal Weighting baseline ($1/N$), the engine was upgraded to fetch live market capitalizations. It now dynamically assigns portfolio weights to each asset based on their real-world scale relative to the total portfolio.
 * **Correlated Asset Paths:** Implements Cholesky Decomposition on the historical correlation matrix to ensure that simulated random numbers respect the real-world statistical relationships between assets.
 * **Massive Scale Simulation:** Simulates 10,000 independent trading days across the portfolio using `numpy`'s vectorized matrix multiplication for extreme performance.
 * **Institutional Risk Metrics:**
@@ -25,7 +26,7 @@ Instead of relying purely on historical backtesting, this engine uses a **Monte 
 2. **Decomposition:** It mathematically breaks down the correlation matrix into a lower-triangular matrix $L$.
 3. **Simulation:** It generates a massive matrix of pure, independent random variables $Z$ and mathematically "injects" the historical correlation via a dot product ($Z \cdot L^{T}$).
 4. **Scaling:** The correlated random numbers are scaled by historical volatility and shifted by historical drift.
-5. **Portfolio Aggregation:** The individual asset simulations are combined using defined portfolio weights (e.g., Equal Weighting).
+5. **Portfolio Aggregation:** The individual asset simulations are combined using defined portfolio weights. While initially modeled with Equal Weights as a baseline, the aggregation is now driven by live Market Capitalization data, ensuring that larger companies command a proportionately larger impact on the simulated portfolio.
 6. **Risk Analysis:** The engine sorts the 10,000 portfolio outcomes to isolate the worst 5% of days, deriving the VaR and CVaR metrics.
 
 ## Getting Started
