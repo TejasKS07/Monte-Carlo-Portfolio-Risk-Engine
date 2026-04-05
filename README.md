@@ -1,47 +1,96 @@
 # Monte Carlo VaR & CVaR Portfolio Risk Engine
 
-A quantitative finance tool built in Python that simulates 10,000 potential future market days to calculate the tail risk of an equity portfolio.
+A quantitative finance tool built in Python that simulates 10,000 potential future market days to estimate the tail risk of an Indian equity portfolio using correlated Monte Carlo simulation.
 
-Instead of relying purely on historical backtesting, this engine uses a **Monte Carlo Simulation** powered by **Cholesky Decomposition** to generate realistic, correlated future return paths for multiple assets. It outputs institutional-grade risk metrics including **Value at Risk (VaR)** and **Conditional Value at Risk (CVaR / Expected Shortfall)**.
+Rather than relying purely on historical backtesting, the engine uses **Cholesky Decomposition** on the asset correlation matrix to generate realistic, correlated return paths — then derives institutional-grade risk metrics: **Value at Risk (VaR)** and **Conditional Value at Risk (CVaR / Expected Shortfall)**.
+
+---
+
+## Portfolio
+
+5-stock NSE universe (Nifty large-caps), weighted by **live market capitalisation**:
+
+| Stock | Ticker | Weight |
+|-------|--------|--------|
+| Reliance Industries | RELIANCE.NS | 34.70% |
+| HDFC Bank | HDFCBANK.NS | 21.95% |
+| TCS | TCS.NS | 16.83% |
+| ICICI Bank | ICICIBANK.NS | 16.53% |
+| Infosys | INFY.NS | 9.99% |
+
+Weights are fetched dynamically at runtime via `yfinance` — not hardcoded — so they update as market caps change.
+
+---
 
 ## Results
 
-Applied to a market-cap weighted portfolio of 5 Nifty equities: **Reliance, TCS, HDFC Bank, Infosys, ICICI Bank.**
+Historical data: **2020-01-01 to present** · Simulations: **10,000** · Confidence: **95%**
 
-| Metric | MC Simulation | Historical |
-|--------|--------------|------------|
-| VaR (95%, 1-day) | -2.04% | — |
-| CVaR (95%, 1-day) | -2.60% | — |
-| VaR on ₹10,00,000 portfolio | ₹20,400 | — |
-| CVaR on ₹10,00,000 portfolio | ₹26,000 | — |
+| Metric | MC Simulation | Historical Simulation |
+|--------|:------------:|:--------------------:|
+| VaR (95%, 1-day) | −2.04% | −1.69% |
+| CVaR / Expected Shortfall (95%) | −2.60% | −2.94% |
+| VaR on ₹10,00,000 portfolio | ₹20,440 | ₹16,929 |
+| CVaR on ₹10,00,000 portfolio | ₹26,038 | ₹29,421 |
 
-> **Interpretation:** On 95% of trading days, the portfolio is not expected to lose more than **2.04%**. In the worst 5% of scenarios (tail events / black swans), the average loss is **2.60%**.
+**MC vs Historical divergence:** The MC simulation produces a higher VaR (more conservative) but lower CVaR than historical simulation. This is expected — Monte Carlo assumes normally distributed shocks, which underweights the fat tails of real crash events (e.g., the COVID-19 drawdown in the training data), causing Historical CVaR to be more extreme.
+
+> **VaR −2.04%:** On 95% of trading days, the portfolio will not lose more than 2.04% of its value.  
+> **CVaR −2.60%:** In the worst 5% of scenarios, the average loss is 2.60% — the expected loss given a bad day.
 
 ![Risk Distribution](risk_analysis.png)
 
-## Key Features
+---
 
-- **Correlated Asset Paths:** Implements Cholesky Decomposition on the historical correlation matrix to ensure simulated random numbers respect real-world statistical dependencies between assets.
-- **Dynamic Market Cap Weighting:** After validating the model using an Equal Weighting ($1/N$) baseline, the engine was upgraded to fetch live market capitalizations and dynamically assign portfolio weights based on each asset's real-world scale.
-- **Institutional Risk Metrics:**
-  - **VaR (Value at Risk):** Maximum expected loss at a given confidence level (95%).
-  - **CVaR (Expected Shortfall):** Average loss across the worst-case tail scenarios — captures black swan risk that VaR ignores.
-- **Live Data Integration:** Automatically pulls historical price data via the `yfinance` API.
-- **Vectorized Simulation:** 10,000 independent scenarios computed via NumPy matrix operations.
+## Methodology
 
-## How It Works
+### 1. Parameter Estimation
+Extract daily drift (`μ`), volatility (`σ`), and the full Pearson correlation matrix from historical returns.
 
-1. **Historical Extraction:** Extracts historical returns, drift (`mu`), volatility (`sigma`), and the Pearson Correlation Matrix for each asset.
-2. **Cholesky Decomposition:** Decomposes the correlation matrix into a lower-triangular matrix $L$ such that $LL^T = \Sigma$.
-3. **Correlated Simulation:** Generates a matrix of independent standard normal random variables $Z$ and injects correlation via $Z \cdot L^T$.
-4. **Scaling:** Correlated draws are scaled by historical volatility and shifted by historical drift to produce realistic return scenarios.
-5. **Portfolio Aggregation:** Individual asset simulations are combined using market-cap derived weights.
-6. **Risk Analysis:** Sorts 10,000 portfolio outcomes to isolate the worst 5%, deriving VaR and CVaR.
+### 2. Cholesky Decomposition
+Factorise the correlation matrix $\Sigma$ into a lower-triangular matrix $L$ such that $LL^T = \Sigma$. This allows independent random draws to be transformed into correlated ones.
+
+### 3. Correlated Monte Carlo Simulation
+Generate a 10,000 × 5 matrix of independent standard normal draws $Z$, then inject correlation:
+
+$$Z_{\text{corr}} = Z \cdot L^T$$
+
+Scale by historical volatility and shift by drift:
+
+$$r_{\text{sim}} = \mu + \sigma \cdot Z_{\text{corr}}$$
+
+### 4. Portfolio Aggregation
+Combine simulated asset returns using market-cap weights $w$:
+
+$$r_{\text{portfolio}} = r_{\text{sim}} \cdot w$$
+
+### 5. Risk Metrics
+- **VaR:** 5th percentile of the 10,000 simulated portfolio outcomes
+- **CVaR:** Mean of all outcomes below the VaR threshold
+
+### 6. Historical Benchmark
+Repeat steps 4–5 on actual historical daily returns to compare MC estimates against observed data.
+
+---
+
+## Key Design Choices
+
+- **Equal weights → Market-cap weights:** Model was first validated under a $1/N$ equal weighting baseline, then upgraded to dynamic market-cap weighting fetched live at runtime.
+- **Cholesky over diagonal covariance:** A diagonal covariance matrix assumes zero correlation between assets — clearly wrong for Indian large-caps sharing macro exposure. Cholesky preserves the full correlation structure.
+- **`np.random.seed(42)`:** Ensures reproducibility across runs.
+
+---
 
 ## Running the Engine
 
-Open `Code.ipynb` and run all cells top to bottom. Modify the `tickers` array under the `DATA` section to use your own stock universe.
+Open `Code.ipynb` and run all cells top to bottom. Modify the `tickers` list under `# DATA` to use your own stock universe.
 
-## Technology Stack
+```bash
+pip install numpy pandas yfinance matplotlib
+```
+
+---
+
+## Tech Stack
 
 Python · NumPy · Pandas · yfinance · Matplotlib
