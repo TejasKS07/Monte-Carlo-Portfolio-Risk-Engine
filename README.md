@@ -15,7 +15,6 @@ Instead of relying purely on historical backtesting, this engine uses a **Monte 
 * **Visual Risk Distribution:** Generates a probability density histogram plotting the full distribution of simulated returns alongside distinct risk thresholds.
 
 ## Technology Stack
-* **Python 3.x**
 * **Pandas:** Data manipulation, cleaning, and time-series pct_change generation.
 * **NumPy:** Linear algebra operations, standard normal random number generation, and matrix multiplication.
 * **yfinance:** Asset data extraction.
@@ -43,6 +42,6 @@ pip install numpy pandas yfinance matplotlib
 3. Run all cells from top to bottom.
 4. The final cell will output the **95% VaR**, **95% CVaR**, and a histogram visualizing your portfolio's risk profile!
 
-## Example Output Interpretation
-* **VaR -2.5% :** We are 95% confident that the portfolio will not lose more than 2.5% of its value on any given normal trading day.
-* **CVaR -3.8% :** In the 5% chance of a market crash event, we expect our average losses to be roughly 3.8%.
+## Output Interpretation
+* **VaR -2.04% :** We are 95% confident that the portfolio will not lose more than 2.04% of its value on any given normal trading day.
+* **CVaR -2.60% :** In the 5% chance of a market crash event, we expect our average losses to be roughly 2.60%.
